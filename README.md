@@ -1,36 +1,139 @@
-# 📊 API REST: Validación y Análisis de Datos (Microservicios)
+#  Predictor de Viralidad de Videos — Arquitectura de Microservicios
 
-Arquitectura distribuida diseñada para la validación estructurada, limpieza y análisis de registros de datos. El sistema separa la orquestación web del procesamiento matemático intensivo, garantizando un flujo de información seguro, auditable y escalable.
+Sistema full-stack diseñado bajo una arquitectura de microservicios desacoplados que predice el potencial viral de un video a partir de sus metadatos previos a la publicación. El núcleo de inferencia utiliza un modelo de **Machine Learning (Random Forest)** expuesto mediante **FastAPI**, orquestado a través de un **API Gateway en Node.js/Express** y consumido por una interfaz interactiva en **Next.js**.
 
 ##  Arquitectura del Sistema
 
-El proyecto consta de dos servicios independientes que se comunican internamente vía HTTP:
+```
+┌─────────────────────────┐       HTTP / JSON       ┌─────────────────────────┐       HTTP / JSON       ┌─────────────────────────┐
+│    Frontend Client      │ ──────────────────────▶ │       API Gateway       │ ──────────────────────▶ │   ML Inference Engine   │
+│  Next.js + Tailwind CSS │                         │   Node.js + Express.js  │                         │   Python + FastAPI      │
+│      (Puerto 3001)      │ ◀────────────────────── │      (Puerto 3000)      │ ◀────────────────────── │      (Puerto 8000)      │
+└─────────────────────────┘                         └─────────────────────────┘                         └─────────────────────────┘
 
-1. **API Gateway (Node.js + Express):** Actúa como orquestador principal. Recibe las peticiones, valida la integridad de la estructura de los datos entrantes (cargas útiles) y maneja las respuestas asíncronas hacia el cliente.
-2. **Motor Analítico (Python + FastAPI):** Microservicio aislado dedicado a la ejecución de limpieza de datos, validación de registros y modelos predictivos (ej. Random Forest con Scikit-Learn) sobre los arrays numéricos.
+```
+
+### Componentes Principales
+
+* **`frontend/` (Presentación):** Aplicación en **Next.js (App Router)** estilizada con **Tailwind CSS**. Captura los metadatos del video, valida tipos numéricos en el cliente y presenta el veredicto de viralidad junto con la probabilidad calculada.
+
+* **`node-gateway/` (Orquestación / API Gateway):** Servidor intermedio en **Node.js y Express**. Gestiona políticas **CORS**, centraliza las peticiones del cliente en el endpoint `/api/videos/analizar` y maneja la comunicación asíncrona y captura de errores hacia el motor de IA.
+
+* **`python-service/` (Inferencia ML):** Microservicio en **Python con FastAPI y Uvicorn**. Valida estrictamente el esquema de entrada mediante **Pydantic**, transforma el payload en un DataFrame de **Pandas** y ejecuta la predicción de probabilidad con un modelo **Random Forest (`scikit-learn`)** aplicando un umbral de decisión optimizado (`0.42`).
 
 ##  Stack Tecnológico
-* **Backend y Enrutamiento:** Node.js, Express.js, Axios
-* **Data Science / Microservicio:** Python 3.13, FastAPI, Pandas, Scikit-Learn
-* **Entorno de Desarrollo:** Linux (Ubuntu 26.04 LTS / WSL), Bash, Git
 
-##  Flujo de Procesamiento
-1. El cliente envía un JSON con datos crudos al endpoint `POST /api/analyze` de Node.js.
-2. Node.js intercepta, realiza una validación primaria y transfiere la carga al motor de Python de forma asíncrona.
-3. Python procesa los datos, aplica las reglas analíticas correspondientes y retorna el análisis estructurado.
-4. Node.js empaqueta los resultados y los devuelve al cliente garantizando el código de estado HTTP adecuado.
+| Capa | Tecnologías | 
+| ----- | ----- | 
+| **Frontend** | Next.js, React, Tailwind CSS, Fetch API | 
+| **API Gateway** | Node.js, Express.js, CORS | 
+| **Motor de IA / Backend ML** | Python 3, FastAPI, Uvicorn, Pydantic, Scikit-Learn, Pandas, Joblib | 
+| **Entorno de Desarrollo** | Ubuntu LTS (WSL2), Git | 
 
-##  Ejecución Local (Entornos Linux)
+## 📂 Estructura del Repositorio
 
-**1. Motor Analítico (Puerto 8000)**
-```bash
+```
+proyecto-api-cv/
+├── frontend/                  # Cliente web Next.js (Puerto 3001)
+│   ├── app/
+│   │   └── page.js            # Formulario interactivo de evaluación
+│   └── package.json
+├── node-gateway/              # API Gateway en Express (Puerto 3000)
+│   ├── routes/
+│   │   └── videos.js          # Endpoint POST /api/videos/analizar
+│   ├── services/
+│   │   └── pythonApi.js       # Cliente HTTP hacia FastAPI
+│   ├── index.js               # Punto de entrada del Gateway
+│   └── package.json
+├── python-service/            # Microservicio de Machine Learning (Puerto 8000)
+│   ├── main.py                # Servidor FastAPI y lógica de inferencia
+│   └── *.pkl                  # Modelo Random Forest serializado
+├── .gitignore
+└── README.md
+
+```
+
+##  Instalación y Ejecución Local
+
+Para levantar el ecosistema completo, abre **tres terminales independientes** desde la raíz del proyecto:
+
+### 1. Iniciar el Microservicio de IA (Puerto 8000)
+
+```
 cd python-service
+python3 -m venv venv
 source venv/bin/activate
-uvicorn main:app --reload --port 8000
+pip install fastapi uvicorn scikit-learn pandas pydantic joblib
+uvicorn main:app --port 8000
 
+```
 
-**2. Orquestador**
-```bash
-# En una nueva terminal en la raíz del proyecto
+*Documentación interactiva Swagger UI disponible en: `http://127.0.0.1:8000/docs`*
+
+### 2. Iniciar el API Gateway en Node.js (Puerto 3000)
+
+```
+cd node-gateway
 npm install
-npm run dev
+node index.js
+
+```
+
+### 3. Iniciar el Frontend en Next.js (Puerto 3001)
+
+```
+cd frontend
+npm install
+npm run dev -- -p 3001
+
+```
+
+*Interfaz web disponible en: `http://localhost:3001`*
+
+##  Contrato de la API (Endpoint del Gateway)
+
+### `POST http://localhost:3000/api/videos/analizar`
+
+**Cuerpo de la petición (Request Body):**
+
+```
+{
+  "category": "Beauty",
+  "upload_day": "Sun",
+  "duration_sec": 1200,
+  "title_length": 45,
+  "upload_hour": 9
+}
+
+```
+
+| Campo | Tipo | Descripción | 
+| ----- | ----- | ----- | 
+| `category` | `string` | Categoría principal del contenido (ej. `Gaming`, `Beauty`, `Tech`). | 
+| `upload_day` | `string` | Día de publicación abreviado en inglés (`Mon`, `Tue`, `Wed`, `Thu`, `Fri`, `Sat`, `Sun`). | 
+| `duration_sec` | `number` | Duración total del video en segundos. | 
+| `title_length` | `number` | Cantidad de caracteres en el título del video. | 
+| `upload_hour` | `number` | Hora de publicación en formato 24 horas (`0` - `23`). | 
+
+**Respuesta exitosa (`200 OK`):**
+
+```
+{
+  "mensaje": "Análisis completado con éxito",
+  "resultado": {
+    "es_viral": true,
+    "probabilidad_viral": 44.79,
+    "umbral_aplicado": 0.42
+  }
+}
+
+```
+
+**Prueba rápida desde terminal con `curl`:**
+
+```
+curl -X POST http://localhost:3000/api/videos/analizar \
+  -H "Content-Type: application/json" \
+  -d '{"category": "Beauty", "upload_day": "Sun", "duration_sec": 1200, "title_length": 45, "upload_hour": 9}'
+
+```
