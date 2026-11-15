@@ -6,7 +6,7 @@
 *Ingeniería en Computación | Desarrollo Full-Stack & Machine Learning*
 
 * **GitHub:** [@Luksit0](https://github.com/Luksit0)
-* **LinkedIn:** [Tu Perfil de LinkedIn](https://linkedin.com/in/juanlopezgar)
+* **LinkedIn:** [Mi perfil](https://linkedin.com/in/juanlopezgar)
 EOF
 
 Sistema full-stack diseñado bajo una arquitectura de microservicios desacoplados que predice el potencial viral de un video a partir de sus metadatos previos a la publicación. El núcleo de inferencia utiliza un modelo de **Machine Learning (Random Forest)** expuesto mediante **FastAPI**, orquestado a través de un **API Gateway en Node.js/Express** y consumido por una interfaz interactiva en **Next.js**.
